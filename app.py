@@ -1,91 +1,66 @@
 import os
-
 import streamlit as st
 
 from dotenv import load_dotenv
 
-from langchain_openai import ChatOpenAI
+from sympy import (
+    symbols,
+    Eq,
+    solve,
+    sympify
+)
 
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
 
 from langchain_core.tools import tool
 
-from langchain.agents import create_tool_calling_agent
-from langchain.agents import AgentExecutor
+from langchain_core.prompts import (
+    ChatPromptTemplate,
+    MessagesPlaceholder
+)
 
-from langchain_core.prompts import MessagesPlaceholder
+from langchain.agents import (
+    create_tool_calling_agent,
+    AgentExecutor
+)
 
 load_dotenv()
 
 st.set_page_config(
-
-    page_title="Text-to-Math Agent",
-
-    page_icon="🧮",
-
-    layout="wide"
-
+    page_title="Math Agent",
+    page_icon="🧮"
 )
 
-st.title("🧮 Assignment 35 - Text-to-Math Agent")
+st.title("🧮 Text to Math Agent")
 
 
-
+# --------------------------------------------------
 # Task 1
+# --------------------------------------------------
 
+st.header("About this Assignment")
 
-st.header("Task 1 - Text-to-Math Agent Overview")
+st.write("""
 
-st.markdown("""
+This application solves mathematical questions
+using a LangChain Agent.
 
-### 1. What is a Text-to-Math Problem?
+Instead of solving every problem directly,
+the agent decides whether it needs
+an external tool.
 
-A text-to-math problem is a word problem written in natural language.
-The agent first understands the question, converts it into mathematical
-operations, performs the calculation and finally generates the answer.
+The agent currently has two tools:
 
----
+• Calculator
 
-### 2. Why are AI Agents useful?
-
-Instead of directly guessing an answer, an AI Agent can decide
-whether it should use a calculator tool before responding.
-
----
-
-### 3. Difference between a normal LLM and an Agent
-
-**Normal LLM**
-
-- Generates responses directly
-- May make calculation mistakes
-
-**Agent**
-
-- Understands the question
-- Uses tools when required
-- Performs accurate calculations
-- Explains the final answer
+• Equation Solver
 
 """)
 
 
-st.info("""
-
-Initially I thought an LLM could solve every
-math problem accurately.
-
-After learning about tool calling,
-I understood that an Agent can use
-a calculator whenever calculations
-are required.
-
-""")
-
-
-
-# Task 2
-
+# --------------------------------------------------
+# LLM
+# --------------------------------------------------
 
 llm = ChatOpenAI(
 
@@ -97,23 +72,87 @@ llm = ChatOpenAI(
 
 
 
+# --------------------------------------------------
+# Tool 1
+# --------------------------------------------------
+
 @tool
 def calculator(expression: str) -> str:
     """
-    Performs mathematical calculations.
+    Performs arithmetic calculations.
     """
 
     try:
 
-        answer = eval(expression)
+        result = sympify(expression)
+
+        return str(result)
+
+    except Exception:
+
+        return "Unable to evaluate expression."
+
+
+
+# --------------------------------------------------
+# Tool 2
+# --------------------------------------------------
+
+@tool
+def equation_solver(equation: str) -> str:
+    """
+    Solves equations.
+
+    Example
+
+    x+5=10
+
+    2*x=18
+    """
+
+    try:
+
+        x = symbols("x")
+
+        left, right = equation.split("=")
+
+        equation = Eq(
+
+            sympify(left),
+
+            sympify(right)
+
+        )
+
+        answer = solve(
+
+            equation,
+
+            x
+
+        )
 
         return str(answer)
 
     except Exception:
 
-        return "Invalid Expression"
+        return "Unable to solve equation."
 
 
+
+tools = [
+
+    calculator,
+
+    equation_solver
+
+]
+
+
+
+# --------------------------------------------------
+# Prompt
+# --------------------------------------------------
 
 prompt = ChatPromptTemplate.from_messages(
 
@@ -123,17 +162,35 @@ prompt = ChatPromptTemplate.from_messages(
 
             "system",
 
-            """
-You are a Math Problem Solver.
+"""
+You are an AI Math Agent.
 
-Always solve the problem step-by-step.
+Your job is NOT to solve problems directly.
 
-Whenever mathematical calculations
-are required,
+First understand the user's question.
 
-use the calculator tool.
+Then decide which tool should be used.
 
-Explain the reasoning clearly.
+Rules
+
+Arithmetic
+→ calculator
+
+Percentages
+→ calculator
+
+Equations
+→ equation_solver
+
+Always explain
+
+1. What type of problem it is.
+
+2. Which tool you selected.
+
+3. Tool output.
+
+4. Final answer.
 
 """
 
@@ -158,12 +215,6 @@ Explain the reasoning clearly.
 )
 
 
-tools = [
-
-    calculator
-
-]
-
 
 agent = create_tool_calling_agent(
 
@@ -176,171 +227,185 @@ agent = create_tool_calling_agent(
 )
 
 
+
 agent_executor = AgentExecutor(
 
     agent=agent,
 
     tools=tools,
 
-    verbose=True
+    verbose=True,
+
+    return_intermediate_steps=True
 
 )
 
-st.success("Text-to-Math Agent Created Successfully")
 
+st.success("Math Agent Ready")
 
+# --------------------------------------------------
 # Task 2
+# --------------------------------------------------
 
-
-st.header("Task 2 - Testing the Text-to-Math Agent")
+st.header("Try the Agent")
 
 st.write(
-    "The agent should understand the problem, "
-    "perform calculations when required and "
-    "return the final answer."
+    "The agent decides which tool should be used. "
+    "There is no manual routing in the application."
 )
 
 
-def solve_math(problem):
+def ask_agent(question):
 
     """
-    Initially I directly asked the LLM.
+    All questions go directly to the agent.
 
-    Later I realised the assignment expects
-    the agent to decide when the calculator
-    should be used.
+    The application itself does not decide
+    which tool to call.
     """
 
-    result = agent_executor.invoke(
+    try:
 
-        {
+        response = agent_executor.invoke(
 
-            "input": problem
+            {
+
+                "input": question
+
+            }
+
+        )
+
+        return response
+
+    except Exception as e:
+
+        return {
+
+            "output": "Something went wrong.",
+
+            "intermediate_steps": [],
+
+            "error": str(e)
 
         }
 
-    )
-
-    return result["output"]
 
 
-# -----------------------------------------------------
-# Arithmetic Problems
-# -----------------------------------------------------
+sample_questions = [
 
-st.subheader("Arithmetic Problems")
+    "Calculate 25+85",
 
-arithmetic_questions = [
+    "What is 30% of 900?",
 
-    "What is 245 + 378?",
+    "Solve x+12=30",
 
-    "Multiply 56 by 28.",
+    "Solve 3*x=27",
 
-    "What is (45 × 12) + 180 ?"
+    "Calculate (45*12)+180"
 
 ]
 
-for question in arithmetic_questions:
 
-    st.write("Question")
+selected = st.selectbox(
 
-    st.write(question)
+    "Choose a sample question",
 
-    answer = solve_math(question)
+    sample_questions
 
-    st.success(answer)
-
+)
 
 
-# -----------------------------------------------------
-# Percentage Problems
-# -----------------------------------------------------
+if st.button("Run Sample"):
 
-st.subheader("Percentage Problems")
+    result = ask_agent(selected)
 
-percentage_questions = [
+    st.subheader("Question")
 
-    "What is 20% of 450?",
+    st.write(selected)
 
-    "A product costs ₹2500. It has a 15% discount. What is the final price?",
+    st.subheader("Final Answer")
 
-    "Find 35% of 920."
-
-]
-
-for question in percentage_questions:
-
-    st.write("Question")
-
-    st.write(question)
-
-    answer = solve_math(question)
-
-    st.success(answer)
+    st.success(result["output"])
 
 
 
-# -----------------------------------------------------
-# Simple Algebra
-# -----------------------------------------------------
+    st.subheader("Agent Activity")
 
-st.subheader("Simple Algebra")
+    if len(result["intermediate_steps"]) == 0:
 
-algebra_questions = [
+        st.info(
 
-    "If x + 12 = 30, what is x?",
+            "No tool was required."
 
-    "If 4x = 40, find x.",
+        )
 
-    "A number increased by 8 becomes 25. Find the number."
+    else:
 
-]
+        for index, step in enumerate(
 
-for question in algebra_questions:
+            result["intermediate_steps"]
 
-    st.write("Question")
+        ):
 
-    st.write(question)
+            st.write(
 
-    answer = solve_math(question)
+                f"Step {index+1}"
 
-    st.success(answer)
+            )
 
+            st.code(str(step))
 
+st.divider()
 
-st.markdown("---")
-
-st.subheader("My Observation")
+st.subheader("What I Observed")
 
 st.write("""
 
-While testing, I noticed that arithmetic questions
-always triggered the calculator tool.
+In my previous version I checked
+whether a question contained
 
-Simple algebra questions were mostly solved
-using reasoning first and calculations afterwards.
++, = or %
 
-The verbose output also helped me understand
-when the agent decided to use the calculator.
+and then manually selected a tool.
+
+After changing the implementation,
+every question now goes directly
+to the Agent.
+
+The Agent decides
+
+• whether a tool is required
+
+• which tool should be used
+
+• when to return the final answer
+
+This is much closer to how
+LangChain Agents are designed
+to work.
 
 """)
-
+# --------------------------------------------------
 # Task 3
+# --------------------------------------------------
 
+st.header("Math Chat")
 
-st.header("Task 3 - Session State for Application")
+st.write(
+    "Ask any arithmetic, percentage or algebra question."
+)
 
-
-# I first stored the questions inside a normal list.
-# Every Streamlit refresh removed the conversation.
-# Using session_state solved this problem.
+# ------------------------------
+# Session State
+# ------------------------------
 
 if "messages" not in st.session_state:
-
     st.session_state.messages = []
 
-
-st.subheader("Conversation History")
+# ------------------------------
+# Display Previous Conversation
+# ------------------------------
 
 for message in st.session_state.messages:
 
@@ -351,14 +416,15 @@ for message in st.session_state.messages:
 
 user_question = st.chat_input(
 
-    "Ask any math question..."
+    "Enter your math question..."
 
 )
 
+# ------------------------------
+# Send Question to Agent
+# ------------------------------
 
 if user_question:
-
-    # Store User Question
 
     st.session_state.messages.append(
 
@@ -377,18 +443,13 @@ if user_question:
         st.markdown(user_question)
 
 
-    # Generate Answer
+    with st.spinner("Agent is thinking..."):
 
-    with st.spinner("Solving..."):
-
-        answer = solve_math(
-
-            user_question
-
-        )
+        result = ask_agent(user_question)
 
 
-    # Store Assistant Answer
+    answer = result["output"]
+
 
     st.session_state.messages.append(
 
@@ -408,219 +469,58 @@ if user_question:
         st.markdown(answer)
 
 
+    # ----------------------------------
+    # Show Tool Selection
+    # ----------------------------------
 
-st.markdown("---")
+    if result["intermediate_steps"]:
 
-st.subheader("Current Session Information")
+        with st.expander(
 
-st.write(
+            "Agent Reasoning"
 
-    "Total Messages :",
+        ):
 
-    len(st.session_state.messages)
+            st.write(
 
-)
+                "The agent selected the following tool(s):"
 
-if st.button("Clear Conversation"):
+            )
 
-    st.session_state.messages = []
+            for i, step in enumerate(
 
-    st.rerun()
+                result["intermediate_steps"]
 
+            ):
 
+                st.write(
 
-st.markdown("---")
+                    f"Step {i+1}"
 
-st.subheader("Suggested Questions")
+                )
 
-examples = [
-
-    "What is 18 + 45?",
-
-    "Find 35% of 640.",
-
-    "If x + 12 = 25 then find x.",
-
-    "A shop gives 20% discount on ₹2500. What is the final price?",
-
-    "Multiply 48 by 36."
-
-]
-
-for question in examples:
-
-    st.write("•", question)
-
-
-
-st.markdown("---")
-
-st.subheader("Observation")
-
-st.write("""
-
-Initially every interaction was treated as a new question because
-I wasn't storing previous messages.
-
-After introducing **st.session_state**, the previous questions
-and answers remained available throughout the session.
-
-This makes the application behave like a real conversational
-assistant instead of a single-question calculator.
-
-""")
-
-
-# Task 4
-
-
-st.header("Task 4 - Interactive Text-to-Math Agent")
-
-st.write(
-    "The agent remembers previous questions during the current session."
-)
-
-
-def solve_and_store(question):
-
-    """
-    Solves the math problem and stores it
-    in session history.
-    """
-
-    result = agent_executor.invoke(
-
-        {
-
-            "input": question
-
-        }
-
-    )
-
-    answer = result["output"]
-
-    st.session_state.messages.append(
-
-        {
-
-            "role": "user",
-
-            "content": question
-
-        }
-
-    )
-
-    st.session_state.messages.append(
-
-        {
-
-            "role": "assistant",
-
-            "content": answer
-
-        }
-
-    )
-
-    return answer
-
-
-
-st.subheader("Try Multi-turn Questions")
-
-example_questions = [
-
-    "What is 250 + 450?",
-
-    "Now multiply the previous answer by 5.",
-
-    "Find 20% of that value.",
-
-    "If I subtract 100 from the previous answer, what do I get?"
-
-]
-
-for question in example_questions:
-
-    if st.button(question):
-
-        with st.spinner("Thinking..."):
-
-            response = solve_and_store(question)
-
-        st.success(response)
-
-
-
-st.markdown("---")
-
-st.subheader("Testing Different Types of Problems")
-
-tests = {
-
-    "Arithmetic":
-
-    "Calculate 785 + 215.",
-
-    "Percentage":
-
-    "Find 18% of 2400.",
-
-    "Algebra":
-
-    "If x + 18 = 50, find x."
-
-}
-
-for category, question in tests.items():
-
-    st.write(f"### {category}")
-
-    st.write(question)
-
-    if st.button(f"Run {category}"):
-
-        result = solve_math(question)
-
-        st.success(result)
-
-
-
-st.markdown("---")
-
-st.subheader("Error Handling")
-
-invalid_question = st.text_input(
-
-    "Try entering an invalid expression or unclear math question"
-
-)
-
-if st.button("Solve Custom Question"):
-
-    if invalid_question.strip() == "":
-
-        st.warning("Please enter a question.")
+                st.code(str(step))
 
     else:
 
-        try:
+        with st.expander(
 
-            answer = solve_math(invalid_question)
+            "Agent Reasoning"
 
-            st.success(answer)
+        ):
 
-        except Exception:
+            st.write(
 
-            st.error("Unable to solve this question.")
+                "The agent answered without using a tool."
+
+            )
 
 
+# ------------------------------
+# Conversation Summary
+# ------------------------------
 
-st.markdown("---")
-
-st.subheader("Session Summary")
+st.divider()
 
 user_count = len(
 
@@ -650,73 +550,242 @@ assistant_count = len(
 
 )
 
-st.metric("Questions Asked", user_count)
+col1, col2 = st.columns(2)
 
-st.metric("Answers Generated", assistant_count)
+with col1:
 
+    st.metric(
+
+        "Questions",
+
+        user_count
+
+    )
+
+with col2:
+
+    st.metric(
+
+        "Responses",
+
+        assistant_count
+
+    )
+
+
+if st.button("Clear Conversation"):
+
+    st.session_state.messages = []
+
+    st.rerun()
 
 
 st.info("""
 
-During testing I noticed that simple arithmetic
-questions consistently triggered the calculator tool.
+Initially I manually checked the question
+to decide whether it was arithmetic or algebra.
 
-For word problems, the agent first interpreted the
-question before deciding whether the calculator
-was required.
+After changing the implementation,
+every question now goes directly to the Agent.
 
-Using session_state also ensured that the previous
-conversation remained available until the chat
-was cleared.
+The Agent itself decides
 
-""")
+• whether a tool is needed
 
-# Task 5
+• which tool should be selected
 
+• when to return the final answer
 
-st.header("Task 5 - Final Observations")
-
-st.markdown("""
-
-### What I Learned
-
-**1. Why use an AI Agent?**
-
-A normal language model can answer questions directly, but it may not always
-perform calculations accurately.
-
-An AI Agent can decide when a calculator is required, execute the calculation,
-and then generate the final response.
-
----
-
-**2. Importance of Tool Calling**
-
-Tool calling allows the model to perform reliable mathematical calculations
-instead of estimating answers.
-
-This makes the responses more accurate for arithmetic and numerical problems.
-
----
-
-**3. Role of Session State**
-
-Initially every interaction behaved like a fresh conversation.
-
-Using `st.session_state` allowed the application to remember previous
-questions and answers during the session.
-
----
-
-**4. Overall Learning**
-
-This assignment helped me understand how an LLM, tools, and an agent work
-together to solve real-world mathematical problems.
-
-I also learned how Streamlit can be used to build an interactive AI application
-without writing frontend code.
+Using session_state also helped me keep
+the conversation until the user clears it.
 
 """)
 
+# --------------------------------------------------
+# Task 4
+# --------------------------------------------------
 
-st.success("Assignment 35 Completed Successfully")
+st.header("Testing the Agent")
+
+st.write(
+    "These sample questions were used to verify "
+    "that the agent selects the appropriate tool."
+)
+
+examples = [
+
+    "Calculate 125 + 375",
+
+    "Calculate (45 * 8) + 90",
+
+    "What is 18% of 650?",
+
+    "Solve x + 15 = 40",
+
+    "Solve 5*x = 60",
+
+    "What is Machine Learning?"
+
+]
+
+example = st.selectbox(
+
+    "Choose a question",
+
+    examples
+
+)
+
+if st.button("Run Test"):
+
+    result = ask_agent(example)
+
+    st.subheader("Question")
+
+    st.write(example)
+
+    st.subheader("Answer")
+
+    st.success(result["output"])
+
+    st.subheader("Tool Calls")
+
+    if result["intermediate_steps"]:
+
+        for i, step in enumerate(result["intermediate_steps"]):
+
+            st.write(f"Tool Call {i+1}")
+
+            st.code(str(step))
+
+    else:
+
+        st.info("No external tool was required.")
+# --------------------------------------------------
+# Validation
+# --------------------------------------------------
+
+st.divider()
+
+st.header("Try Your Own Question")
+
+custom_question = st.text_input(
+
+    "Enter any mathematical question"
+
+)
+
+if st.button("Solve"):
+
+    if custom_question.strip() == "":
+
+        st.warning("Please enter a question.")
+
+    else:
+
+        try:
+
+            result = ask_agent(custom_question)
+
+            st.success(result["output"])
+
+            if result["intermediate_steps"]:
+
+                with st.expander("Tool Activity"):
+
+                    for step in result["intermediate_steps"]:
+
+                        st.code(str(step))
+
+        except Exception as e:
+
+            st.error("Unable to process your request.")
+
+            st.code(str(e))
+st.divider()
+
+st.header("My Observations")
+
+st.write("""
+
+Initially I manually identified arithmetic
+and algebra questions in Python.
+
+After rebuilding the application,
+every question now goes directly to the Agent.
+
+The agent itself decides whether a tool
+should be used.
+
+Using SymPy also improved equation solving
+compared to my earlier implementation.
+
+I also tested a few invalid inputs.
+Adding exception handling prevented the
+application from crashing.
+
+""")
+
+st.divider()
+
+st.subheader("Validation Testing")
+
+invalid_inputs = [
+
+    "",
+
+    "x+=",
+
+    "25//",
+
+    "Solve x=",
+
+    "abc"
+
+]
+
+for item in invalid_inputs:
+
+    st.code(item)
+
+st.write("""
+
+These inputs were tested to check whether
+the application crashes.
+
+Instead of terminating unexpectedly,
+the application displays an appropriate
+error message.
+
+""")
+
+# --------------------------------------------------
+# Final Reflection
+# --------------------------------------------------
+
+st.divider()
+
+st.header("What I Learned")
+
+st.write("""
+
+This assignment helped me understand that an
+AI Agent is different from a normal LLM.
+
+A language model can answer questions directly,
+but an Agent first decides whether a tool
+is required before generating the response.
+
+I also learned that SymPy is much safer than
+using eval() for solving mathematical problems.
+
+While rebuilding this assignment, I realised
+that manually checking whether a question
+contained '+' or '=' was not the right approach.
+Instead, the Agent should make that decision.
+
+Using Streamlit session_state also helped me
+maintain the conversation history until
+the user cleared the chat.
+
+""")

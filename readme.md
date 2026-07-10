@@ -2,21 +2,16 @@
 
 ## Objective
 
-The objective of this assignment was to build a Text-to-Math AI Agent using LangChain and Streamlit. The agent understands mathematical questions written in natural language, uses a calculator tool whenever required, and provides step-by-step solutions.
+The objective of this assignment was to build a Text-to-Math Agent using LangChain and Streamlit. The application accepts mathematical questions written in natural language and lets the agent decide which tool should be used to solve them.
 
 ---
+## github link 
 
-## GitHub Repository
+https://github.com/nandita141099/assignment35
 
-(Add GitHub Link)
+## streamit link
 
----
-
-## Streamlit Deployment
-
-(Add Streamlit Link)
-
----
+https://assignment35-myd9cxqymrbdc8wrmxyxzn.streamlit.app/
 
 ## Project Structure
 
@@ -58,39 +53,42 @@ streamlit run app.py
 
 ---
 
----
-
 ## Features
 
-- Text-to-Math AI Agent
+- LangChain Tool Calling Agent
 - Calculator Tool
-- LangChain Tool Calling
-- Step-by-step Problem Solving
-- Arithmetic Questions
-- Percentage Questions
-- Algebra Questions
-- Streamlit Chat Interface
+- Equation Solver Tool
+- SymPy Integration
+- Streamlit Interface
 - Session State
 - Conversation History
+- Tool Call Display
+- Error Handling
 
 ---
 
 ## What I Learned
 
-This assignment helped me understand that solving mathematical word problems involves more than just generating text. An AI Agent first interprets the user's request, decides whether a calculation is needed, and then uses the appropriate tool before generating the final answer.
+Before this assignment I thought the application itself should decide whether a calculator or equation solver was required.
 
-I also learned how Streamlit session state preserves conversation history, making the application behave like a real interactive assistant rather than a single-use calculator.
+While rebuilding it, I understood that this decision should be made by the LangChain Agent instead. The application only sends the user's question to the agent, and the agent decides which tool should be called.
+
+I also learned why SymPy is preferred over `eval()`. It is safer and provides much better support for solving equations.
+
+Another useful concept was Streamlit's `session_state`, which helped preserve conversation history without using an external database.
 
 ---
 
 ## Challenges
 
-One challenge was handling different styles of mathematical questions, such as arithmetic, percentages, and simple algebra, using the same workflow.
+The main challenge was understanding how tool-calling agents actually work.
 
-Another challenge was maintaining the conversation across multiple interactions. After implementing `st.session_state`, the application was able to retain previous questions and answers until the conversation was cleared.
+Initially I wrote Python code to identify arithmetic and algebra questions manually. After revisiting the LangChain documentation, I changed the design so that every question goes directly to the agent, allowing it to choose the appropriate tool.
+
+I also spent time testing invalid inputs to make sure the application displayed meaningful error messages instead of crashing.
 
 ---
 
 ## Conclusion
 
-This assignment provided practical experience in combining LangChain Agents, tool calling, and Streamlit to build an interactive Text-to-Math application. It also strengthened my understanding of how AI Agents can improve accuracy by using external tools instead of relying only on language generation.
+This assignment helped me understand how LangChain Agents, tool calling, SymPy and Streamlit can be combined to build an interactive mathematical assistant. It also showed me the difference between writing application logic manually and allowing the agent to make decisions using available tools.
